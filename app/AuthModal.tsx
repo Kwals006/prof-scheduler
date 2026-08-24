@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 
 interface AuthModalProps {
@@ -15,6 +15,50 @@ export default function AuthModal({ onClose }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [savedEmails, setSavedEmails] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Charger les emails sauvegardés au démarrage
+  useEffect(() => {
+    const stored = localStorage.getItem('savedEmails');
+    if (stored) {
+      setSavedEmails(JSON.parse(stored));
+    }
+  }, []);
+
+  // Filtrer les suggestions quand l'email change
+  useEffect(() => {
+    if (email.length > 0) {
+      const filtered = savedEmails.filter((e) =>
+        e.toLowerCase().startsWith(email.toLowerCase())
+      );
+      setSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [email, savedEmails]);
+
+  const saveEmail = (emailToSave: string) => {
+    const stored = localStorage.getItem('savedEmails');
+    const existing: string[] = stored ? JSON.parse(stored) : [];
+
+    // Ajouter seulement si pas déjà dans la liste
+    if (!existing.includes(emailToSave)) {
+      const updated = [...existing, emailToSave];
+      localStorage.setItem('savedEmails', JSON.stringify(updated));
+      setSavedEmails(updated);
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion: string) => {
+    setEmail(suggestion);
+    setShowSuggestions(false);
+    setSuggestions([]);
+  };
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -43,6 +87,8 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           return;
         }
 
+        // Sauvegarder l'email après connexion réussie
+        saveEmail(email);
         onClose();
       } else {
         const { error } = await supabase.auth.signUp({
@@ -55,7 +101,9 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           return;
         }
 
-        setMessage('Compte créé! Tu peux maintenant te connecter.');
+        // Sauvegarder l'email après inscription réussie
+        saveEmail(email);
+        setMessage('Compte créé! Vérifie ton email pour confirmer.');
         setIsLogin(true);
       }
     } catch (err) {
@@ -81,19 +129,47 @@ export default function AuthModal({ onClose }: AuthModalProps) {
 
         <div className="space-y-4">
 
-          {/* Email */}
+          {/* Email avec autocomplete */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">
               Email
             </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ton.email@example.com"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                ref={inputRef}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onFocus={() => {
+                  if (suggestions.length > 0) setShowSuggestions(true);
+                }}
+                onBlur={() => {
+                  // Délai pour permettre le clic sur suggestion
+                  setTimeout(() => setShowSuggestions(false), 150);
+                }}
+                placeholder="ton.email@example.com"
+                autoComplete="off"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+
+              {/* Liste de suggestions */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg mt-1 z-10 overflow-hidden">
+                  {suggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onMouseDown={() => handleSelectSuggestion(suggestion)}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 text-gray-700 text-sm flex items-center gap-2"
+                    >
+                      <span>📧</span>
+                      <span>{suggestion}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Password avec œil */}
@@ -107,6 +183,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="current-password"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               />
@@ -116,12 +193,10 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
                 {showPassword ? (
-                  // Œil barré (cacher)
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21" />
                   </svg>
                 ) : (
-                  // Œil (montrer)
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
