@@ -1,5 +1,13 @@
 'use client';
 
+import { useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { fr } from 'date-fns/locale';
+import { registerLocale } from 'react-datepicker';
+
+registerLocale('fr', fr);
+
 interface EventModalProps {
   selectedDate: Date | null;
   onClose: () => void;
@@ -9,39 +17,34 @@ interface EventModalProps {
 export default function EventModal({ selectedDate, onClose, onSave }: EventModalProps) {
   if (!selectedDate) return null;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const title = (form.elements.namedItem('title') as HTMLInputElement).value;
-    const startTime = (form.elements.namedItem('startTime') as HTMLInputElement).value;
-    const endTime = (form.elements.namedItem('endTime') as HTMLInputElement).value;
+  const defaultStart = new Date(selectedDate);
+  defaultStart.setHours(9, 0, 0);
 
-    if (!title || !startTime || !endTime) {
-      alert('Remplis tous les champs!');
+  const defaultEnd = new Date(selectedDate);
+  defaultEnd.setHours(10, 0, 0);
+
+  const [title, setTitle] = useState('');
+  const [startDate, setStartDate] = useState<Date>(defaultStart);
+  const [endDate, setEndDate] = useState<Date>(defaultEnd);
+
+  const handleSubmit = () => {
+    if (!title) {
+      alert('Remplis le nom de l\'événement!');
       return;
     }
 
-    const [startH, startM] = startTime.split(':').map(Number);
-    const [endH, endM] = endTime.split(':').map(Number);
-
-    const start = new Date(selectedDate);
-    start.setHours(startH, startM, 0);
-
-    const end = new Date(selectedDate);
-    end.setHours(endH, endM, 0);
-
-    if (end <= start) {
+    if (endDate <= startDate) {
       alert('L\'heure de fin doit être après l\'heure de début!');
       return;
     }
 
-    onSave(title, start, end);
+    onSave(title, startDate, endDate);
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        
+
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-900">
@@ -55,9 +58,8 @@ export default function EventModal({ selectedDate, onClose, onSave }: EventModal
           </button>
         </div>
 
-        {/* Formulaire */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          
+        <div className="space-y-4">
+
           {/* Titre */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -65,28 +67,36 @@ export default function EventModal({ selectedDate, onClose, onSave }: EventModal
             </label>
             <input
               type="text"
-              name="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Cours Mathématiques"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
           </div>
 
-          {/* Date (read-only) */}
+          {/* Date */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">
               Date
             </label>
-            <input
-              type="text"
-              value={selectedDate.toLocaleDateString('fr-BE', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-              readOnly
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-600"
+            <DatePicker
+              selected={startDate}
+              onChange={(date: Date | null) => {
+                if (date) {
+                  const newStart = new Date(date);
+                  newStart.setHours(startDate.getHours(), startDate.getMinutes(), 0);
+                  const newEnd = new Date(date);
+                  newEnd.setHours(endDate.getHours(), endDate.getMinutes(), 0);
+                  setStartDate(newStart);
+                  setEndDate(newEnd);
+                }
+              }}
+              locale="fr"
+              dateFormat="EEEE d MMMM yyyy"
+              calendarStartDay={1}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              placeholderText="Choisir une date"
             />
           </div>
 
@@ -96,22 +106,38 @@ export default function EventModal({ selectedDate, onClose, onSave }: EventModal
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Heure de début
               </label>
-              <input
-                type="time"
-                name="startTime"
-                defaultValue="09:00"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <DatePicker
+                selected={startDate}
+                onChange={(date: Date | null) => {
+                  if (date) setStartDate(date);
+                }}
+                locale="fr"
+                showTimeSelect
+                showTimeSelectOnly
+                timeIntervals={15}
+                timeCaption="Heure"
+                dateFormat="HH:mm"
+                timeFormat="HH:mm"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               />
             </div>
             <div className="flex-1">
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Heure de fin
               </label>
-              <input
-                type="time"
-                name="endTime"
-                defaultValue="10:00"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <DatePicker
+                selected={endDate}
+                onChange={(date: Date | null) => {
+                  if (date) setEndDate(date);
+                }}
+                locale="fr"
+                showTimeSelect
+                showTimeSelectOnly
+                timeIntervals={15}
+                timeCaption="Heure"
+                dateFormat="HH:mm"
+                timeFormat="HH:mm"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               />
             </div>
           </div>
@@ -119,21 +145,19 @@ export default function EventModal({ selectedDate, onClose, onSave }: EventModal
           {/* Boutons */}
           <div className="flex gap-3 pt-2">
             <button
-              type="button"
               onClick={onClose}
               className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg"
             >
               Annuler
             </button>
             <button
-              type="submit"
+              onClick={handleSubmit}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg"
             >
               Sauvegarder ✅
             </button>
           </div>
-        </form>
-
+        </div>
       </div>
     </div>
   );

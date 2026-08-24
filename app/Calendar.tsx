@@ -7,8 +7,8 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import EventModal from './EventModal';
+import EventDetailModal from './EventDetailModal';
 
-// Messages en français
 const messages = {
   today: 'Aujourd\'hui',
   previous: 'Précédent',
@@ -57,6 +57,8 @@ export default function CalendarComponent() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   useEffect(() => {
     fetchEvents();
@@ -132,26 +134,63 @@ export default function CalendarComponent() {
     }
   };
 
-  const handleSelectEvent = async (event: Event) => {
-    const confirmed = confirm(`Supprimer "${event.title}"?`);
-    if (confirmed) {
-      try {
-        const { error } = await supabase
-          .from('events')
-          .delete()
-          .eq('id', event.id);
+  const handleSelectEvent = (event: Event) => {
+    setSelectedEvent(event);
+    setShowDetailModal(true);
+  };
 
-        if (error) {
-          console.error('Erreur lors de la suppression:', error);
-          alert('Erreur lors de la suppression');
-          return;
-        }
+  const handleDeleteEvent = async (event: Event) => {
+    try {
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', event.id);
 
-        setEvents(events.filter((e) => e.id !== event.id));
-      } catch (err) {
-        console.error('Erreur:', err);
+      if (error) {
+        console.error('Erreur lors de la suppression:', error);
         alert('Erreur lors de la suppression');
+        return;
       }
+
+      setEvents(events.filter((e) => e.id !== event.id));
+      setShowDetailModal(false);
+      setSelectedEvent(null);
+    } catch (err) {
+      console.error('Erreur:', err);
+      alert('Erreur lors de la suppression');
+    }
+  };
+
+  const handleUpdateEvent = async (
+    event: Event,
+    title: string,
+    start: Date,
+    end: Date
+  ) => {
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({
+          title,
+          start: start.toISOString(),
+          end: end.toISOString(),
+        })
+        .eq('id', event.id);
+
+      if (error) {
+        console.error('Erreur lors de la mise à jour:', error);
+        alert('Erreur lors de la mise à jour');
+        return;
+      }
+
+      setEvents(events.map((e) =>
+        e.id === event.id ? { ...e, title, start, end } : e
+      ));
+      setShowDetailModal(false);
+      setSelectedEvent(null);
+    } catch (err) {
+      console.error('Erreur:', err);
+      alert('Erreur lors de la mise à jour');
     }
   };
 
@@ -187,7 +226,8 @@ export default function CalendarComponent() {
 
   return (
     <div className="w-full h-screen flex flex-col bg-white">
-      {/* Modal */}
+
+      {/* Modal ajout */}
       {showModal && (
         <EventModal
           selectedDate={selectedDate}
@@ -196,6 +236,19 @@ export default function CalendarComponent() {
             setSelectedDate(null);
           }}
           onSave={handleSaveEvent}
+        />
+      )}
+
+      {/* Modal détail/modification */}
+      {showDetailModal && (
+        <EventDetailModal
+          event={selectedEvent}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedEvent(null);
+          }}
+          onDelete={handleDeleteEvent}
+          onUpdate={handleUpdateEvent}
         />
       )}
 
@@ -223,7 +276,7 @@ export default function CalendarComponent() {
         </div>
 
         <div className="text-lg font-bold text-gray-700">
-          {view === 'month' 
+          {view === 'month'
             ? format(date, 'MMMM yyyy', { locale: fr })
             : format(date, 'd MMMM yyyy', { locale: fr })
           }
