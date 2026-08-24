@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import EventModal from './EventModal';
 import EventDetailModal from './EventDetailModal';
+import { getEventType } from './eventTypes';
 
 const messages = {
   today: 'Aujourd\'hui',
@@ -48,9 +49,14 @@ interface Event {
   title: string;
   start: Date;
   end: Date;
+  type: string;
 }
 
-export default function CalendarComponent() {
+interface CalendarProps {
+  userId: string;
+}
+
+export default function CalendarComponent({ userId }: CalendarProps) {
   const [events, setEvents] = useState<Event[]>([]);
   const [view, setView] = useState<View>('month');
   const [date, setDate] = useState(new Date());
@@ -70,6 +76,7 @@ export default function CalendarComponent() {
       const { data, error } = await supabase
         .from('events')
         .select('*')
+        .eq('user_id', userId)
         .order('start', { ascending: true });
 
       if (error) {
@@ -83,6 +90,7 @@ export default function CalendarComponent() {
           title: event.title,
           start: new Date(event.start),
           end: new Date(event.end),
+          type: event.type || 'cours',
         }));
         setEvents(formattedEvents);
       }
@@ -98,17 +106,22 @@ export default function CalendarComponent() {
     setShowModal(true);
   };
 
-  const handleSaveEvent = async (title: string, start: Date, end: Date) => {
+  const handleSaveEvent = async (
+    title: string,
+    start: Date,
+    end: Date,
+    type: string
+  ) => {
     try {
       const { data, error } = await supabase
         .from('events')
-        .insert([
-          {
-            title,
-            start: start.toISOString(),
-            end: end.toISOString(),
-          },
-        ])
+        .insert([{
+          title,
+          start: start.toISOString(),
+          end: end.toISOString(),
+          type,
+          user_id: userId,
+        }])
         .select();
 
       if (error) {
@@ -123,6 +136,7 @@ export default function CalendarComponent() {
           title,
           start,
           end,
+          type,
         };
         setEvents([...events, newEvent]);
         setShowModal(false);
@@ -165,7 +179,8 @@ export default function CalendarComponent() {
     event: Event,
     title: string,
     start: Date,
-    end: Date
+    end: Date,
+    type: string
   ) => {
     try {
       const { error } = await supabase
@@ -174,6 +189,7 @@ export default function CalendarComponent() {
           title,
           start: start.toISOString(),
           end: end.toISOString(),
+          type,
         })
         .eq('id', event.id);
 
@@ -184,7 +200,7 @@ export default function CalendarComponent() {
       }
 
       setEvents(events.map((e) =>
-        e.id === event.id ? { ...e, title, start, end } : e
+        e.id === event.id ? { ...e, title, start, end, type } : e
       ));
       setShowDetailModal(false);
       setSelectedEvent(null);
@@ -214,6 +230,20 @@ export default function CalendarComponent() {
     } else if (action === 'TODAY') {
       setDate(new Date());
     }
+  };
+
+  const eventStyleGetter = (event: Event) => {
+    const eventType = getEventType(event.type || 'cours');
+    return {
+      style: {
+        backgroundColor: eventType.color,
+        borderColor: eventType.color,
+        color: 'white',
+        borderRadius: '6px',
+        border: 'none',
+        padding: '2px 6px',
+      },
+    };
   };
 
   if (loading) {
@@ -282,6 +312,22 @@ export default function CalendarComponent() {
           }
         </div>
 
+        {/* Légende */}
+        <div className="flex gap-3 flex-wrap">
+          {['cours', 'reunion', 'permanence', 'examen', 'autre'].map((t) => {
+            const et = getEventType(t);
+            return (
+              <span
+                key={t}
+                style={{ backgroundColor: et.color }}
+                className="text-white text-xs font-semibold px-2 py-1 rounded-full"
+              >
+                {et.label}
+              </span>
+            );
+          })}
+        </div>
+
         <div className="flex gap-2">
           <button
             onClick={() => setView('month')}
@@ -337,6 +383,7 @@ export default function CalendarComponent() {
           step={30}
           timeslots={2}
           messages={messages}
+          eventPropGetter={eventStyleGetter}
           formats={{
             monthHeaderFormat: (date) => format(date, 'MMMM yyyy', { locale: fr }),
             weekdayFormat: (date) => format(date, 'EEEE', { locale: fr }),

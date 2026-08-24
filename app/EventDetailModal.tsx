@@ -5,6 +5,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { fr } from 'date-fns/locale';
 import { registerLocale } from 'react-datepicker';
+import { EVENT_TYPES, getEventType } from './eventTypes';
 
 registerLocale('fr', fr);
 
@@ -13,13 +14,14 @@ interface Event {
   title: string;
   start: Date;
   end: Date;
+  type: string;
 }
 
 interface EventDetailModalProps {
   event: Event | null;
   onClose: () => void;
   onDelete: (event: Event) => void;
-  onUpdate: (event: Event, title: string, start: Date, end: Date) => void;
+  onUpdate: (event: Event, title: string, start: Date, end: Date, type: string) => void;
 }
 
 export default function EventDetailModal({
@@ -34,6 +36,9 @@ export default function EventDetailModal({
   const [title, setTitle] = useState(event.title);
   const [startDate, setStartDate] = useState<Date>(event.start);
   const [endDate, setEndDate] = useState<Date>(event.end);
+  const [type, setType] = useState(event.type || 'cours');
+
+  const eventType = getEventType(event.type || 'cours');
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('fr-BE', {
@@ -53,7 +58,7 @@ export default function EventDetailModal({
       return;
     }
 
-    onUpdate(event, title, startDate, endDate);
+    onUpdate(event, title, startDate, endDate, type);
   };
 
   return (
@@ -76,6 +81,19 @@ export default function EventDetailModal({
         {/* Mode lecture */}
         {!isEditing ? (
           <div className="space-y-4">
+
+            {/* Badge type */}
+            <div
+              style={{
+                backgroundColor: eventType.bgColor,
+                color: eventType.textColor,
+                borderColor: eventType.color,
+              }}
+              className="inline-block border-2 rounded-lg px-3 py-1 font-semibold text-sm"
+            >
+              {eventType.label}
+            </div>
+
             <div>
               <label className="block text-sm font-semibold text-gray-500 mb-1">
                 Événement
@@ -131,6 +149,7 @@ export default function EventDetailModal({
         ) : (
           /* Mode édition */
           <div className="space-y-4">
+
             {/* Titre */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -143,6 +162,30 @@ export default function EventDetailModal({
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
               />
+            </div>
+
+            {/* Type */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Type d'événement
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {EVENT_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setType(t.value)}
+                    style={{
+                      backgroundColor: type === t.value ? t.color : t.bgColor,
+                      color: type === t.value ? 'white' : t.textColor,
+                      borderColor: t.color,
+                    }}
+                    className="border-2 rounded-lg px-3 py-2 font-semibold text-sm transition-all"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Date */}
@@ -165,52 +208,50 @@ export default function EventDetailModal({
                 locale="fr"
                 dateFormat="EEEE d MMMM yyyy"
                 calendarStartDay={1}
-                inline={false}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                placeholderText="Choisir une date"
-              />
-            </div>
-
-            {/* Heure début */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Heure de début
-              </label>
-              <DatePicker
-                selected={startDate}
-                onChange={(date: Date | null) => {
-                  if (date) setStartDate(date);
-                }}
-                locale="fr"
-                showTimeSelect
-                showTimeSelectOnly
-                timeIntervals={15}
-                timeCaption="Heure"
-                dateFormat="HH:mm"
-                timeFormat="HH:mm"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               />
             </div>
 
-            {/* Heure fin */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Heure de fin
-              </label>
-              <DatePicker
-                selected={endDate}
-                onChange={(date: Date | null) => {
-                  if (date) setEndDate(date);
-                }}
-                locale="fr"
-                showTimeSelect
-                showTimeSelectOnly
-                timeIntervals={15}
-                timeCaption="Heure"
-                dateFormat="HH:mm"
-                timeFormat="HH:mm"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              />
+            {/* Heures */}
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Heure de début
+                </label>
+                <DatePicker
+                  selected={startDate}
+                  onChange={(date: Date | null) => {
+                    if (date) setStartDate(date);
+                  }}
+                  locale="fr"
+                  showTimeSelect
+                  showTimeSelectOnly
+                  timeIntervals={15}
+                  timeCaption="Heure"
+                  dateFormat="HH:mm"
+                  timeFormat="HH:mm"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Heure de fin
+                </label>
+                <DatePicker
+                  selected={endDate}
+                  onChange={(date: Date | null) => {
+                    if (date) setEndDate(date);
+                  }}
+                  locale="fr"
+                  showTimeSelect
+                  showTimeSelectOnly
+                  timeIntervals={15}
+                  timeCaption="Heure"
+                  dateFormat="HH:mm"
+                  timeFormat="HH:mm"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                />
+              </div>
             </div>
 
             {/* Boutons */}

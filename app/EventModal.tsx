@@ -5,13 +5,14 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { fr } from 'date-fns/locale';
 import { registerLocale } from 'react-datepicker';
+import { EVENT_TYPES } from './eventTypes';
 
 registerLocale('fr', fr);
 
 interface EventModalProps {
   selectedDate: Date | null;
   onClose: () => void;
-  onSave: (title: string, start: Date, end: Date) => void;
+  onSave: (title: string, start: Date, end: Date, type: string) => void;
 }
 
 export default function EventModal({ selectedDate, onClose, onSave }: EventModalProps) {
@@ -26,6 +27,7 @@ export default function EventModal({ selectedDate, onClose, onSave }: EventModal
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState<Date>(defaultStart);
   const [endDate, setEndDate] = useState<Date>(defaultEnd);
+  const [type, setType] = useState('cours');
 
   const handleSubmit = () => {
     if (!title) {
@@ -38,7 +40,7 @@ export default function EventModal({ selectedDate, onClose, onSave }: EventModal
       return;
     }
 
-    onSave(title, startDate, endDate);
+    onSave(title, startDate, endDate, type);
   };
 
   return (
@@ -73,6 +75,30 @@ export default function EventModal({ selectedDate, onClose, onSave }: EventModal
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
+          </div>
+
+          {/* Type */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Type d'événement
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {EVENT_TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setType(t.value)}
+                  style={{
+                    backgroundColor: type === t.value ? t.color : t.bgColor,
+                    color: type === t.value ? 'white' : t.textColor,
+                    borderColor: t.color,
+                  }}
+                  className="border-2 rounded-lg px-3 py-2 font-semibold text-sm transition-all"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Date */}
